@@ -47,6 +47,32 @@ Exit codes: `0` ok, `2` analysis failed, `3` verdict was suspicious.
 - **Trust signals** — package age, release recency, weekly downloads,
   maintainer count, shipped binaries
 
+## Use with coding agents (MCP)
+
+`sx` ships an MCP server so agents can check a package *before* they install
+it. Register it with any MCP client:
+
+```jsonc
+// Claude Code: .mcp.json  (or claude_desktop_config.json)
+{
+  "mcpServers": {
+    "sx": { "command": "npx", "args": ["-y", "sx-cli", "sx-mcp"] }
+  }
+}
+```
+
+Or from a local checkout: `{"command": "node", "args": ["/path/to/sx/src/mcp.js"]}`
+
+Two tools are exposed:
+
+- **`scan_package`** — one spec (`express`, `react@18.2.0`, `@scope/name`)
+- **`scan_packages`** — up to 20 specs at once, for evaluating a candidate list
+
+Both return a readable summary plus the full structured report. A `suspicious`
+verdict tells the agent, in the response text, not to install without asking
+the user. Results are cached on disk per resolved `name@version` (immutable on
+npm, so a hit is always valid).
+
 ## Scoring model
 
 Findings are split into two kinds, and the split is the whole trick:
