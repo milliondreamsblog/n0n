@@ -4,12 +4,26 @@ import { parseTar } from "./tar.js";
 const REGISTRY = "https://registry.npmjs.org";
 const DOWNLOADS_API = "https://api.npmjs.org/downloads/point/last-week";
 
-async function getJson(url) {
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) {
-    throw new Error(`${url} responded ${res.status} ${res.statusText}`);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function getJson(url, attempts = 3) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (res.ok) return res.json();
+      // 404 is a real answer (package/stats don't exist) — don't retry it.
+      if (res.status === 404) {
+        throw Object.assign(new Error(`${url} responded 404`), { permanent: true });
+      }
+      lastError = new Error(`${url} responded ${res.status} ${res.statusText}`);
+    } catch (err) {
+      if (err.permanent) throw err;
+      lastError = err;
+    }
+    await sleep(400 * (i + 1));
   }
-  return res.json();
+  throw lastError;
 }
 
 /** Split "name@version" / "@scope/name@version" into { name, range }. */

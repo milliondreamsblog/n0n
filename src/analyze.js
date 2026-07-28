@@ -12,7 +12,12 @@ function finding(severity, title, detail) {
   return { severity, title, detail };
 }
 
+// Bundled/minified outputs of legitimate libraries are full of eval, huge
+// base64 blobs, and packed strings — near-zero signal, constant noise.
+const BUNDLE_PATH = /\.min\.c?m?js$|(^|\/)(dist|build|umd|vendor|compiled|bundles?)\//i;
+
 function scanSource(path, text, findings) {
+  if (BUNDLE_PATH.test(path)) return;
   const flags = [];
   if (/\beval\s*\(/.test(text)) flags.push("eval()");
   if (/new\s+Function\s*\(/.test(text)) flags.push("new Function()");
@@ -27,7 +32,7 @@ function scanSource(path, text, findings) {
 
   if (flags.length > 0) {
     findings.push(
-      finding(15, `Obfuscation signals in ${path}`, flags.join(", ")),
+      finding(10, `Obfuscation signals in ${path}`, flags.join(", ")),
     );
   }
   // The classic exfiltration triple: read env + talk to network (+ shell).
@@ -121,12 +126,14 @@ export function analyze(pkg) {
   }
 
   // Cap repeated per-file findings so one pattern doesn't swamp the card.
+  // The key must normalize away file paths — both "(path)" and "in path"
+  // forms — or every file counts as a distinct finding.
   const deduped = [];
   const seenTitles = new Map();
   for (const f of findings) {
-    const key = f.title.replace(/\(.*\)/, "");
+    const key = f.title.replace(/\s*\(.*\)/, "").replace(/ in .+$/, "");
     const count = seenTitles.get(key) ?? 0;
-    if (count < 3) deduped.push(f);
+    if (count < 2) deduped.push(f);
     seenTitles.set(key, count + 1);
   }
 
@@ -140,6 +147,10 @@ export function analyze(pkg) {
     if (pkg.weeklyDownloads > 10_000_000) trust = 0.4;
     else if (pkg.weeklyDownloads > 1_000_000) trust = 0.6;
     else if (pkg.weeklyDownloads > 100_000) trust = 0.8;
+  } else if (ageDays !== null && ageDays > 730 && pkg.weeklyDownloads === null) {
+    // Download stats unavailable (API hiccup / scoped package): age alone
+    // still earns a modest discount so verdicts don't flap on network luck.
+    trust = 0.8;
   }
   const score = Math.round(rawScore * trust);
   const verdict = score >= 50 ? "suspicious" : score >= 20 ? "caution" : "low-risk";
