@@ -1,0 +1,23 @@
+{
+  "name": "sx-cli",
+  "version": "0.1.0",
+  "description": "sx — see what an npm package will do before you run it. A safer npx.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "sx": "src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "security",
+    "npx",
+    "supply-chain",
+    "npm",
+    "malware"
+  ]
+}
