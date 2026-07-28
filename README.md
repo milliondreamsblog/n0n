@@ -88,6 +88,21 @@ binary download is fine — 261M people would have noticed). It never discounts
 precisely the shape of a compromised-maintainer attack: popularity is the
 weapon, so it must not become a hiding place.
 
+Behavior findings are then weighted by **where the code can actually run**.
+sx resolves each install hook's entry script and walks its local `require`/
+`import` graph, so it knows which files execute on `npm install` — before you
+have read a line of them — versus which only run on import, versus which sit
+in `test/` or `examples/` and may never run at all:
+
+| tier | weight | shown as |
+|---|---|---|
+| install-time | 1.5× | `[install-time]` |
+| runtime | 1× | — |
+| test / example | 0.25× | `[test/example]` |
+
+The same exfiltration payload scores `suspicious` in a `postinstall` script and
+`low-risk` in a test fixture — which is the correct reading of both.
+
 ## Benchmarks
 
 ```sh

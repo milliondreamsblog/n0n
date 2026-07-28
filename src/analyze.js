@@ -1,4 +1,5 @@
 import { typosquatTarget } from "./typosquat.js";
+import { classifyFiles, TIER, TIER_WEIGHT } from "./reachability.js";
 
 // Verdicts are deliberately capped at "suspicious" — sx never claims a
 // package is malicious. That label needs human review sx doesn't have yet.
@@ -121,22 +122,36 @@ export function analyze(pkg) {
     );
   }
 
+  // Classify files by whether they can actually execute, then weight each
+  // file's findings by tier — install-time code counts more than a test
+  // fixture that may never run.
+  const tiers = classifyFiles(pkg.manifest, pkg.files);
   for (const file of pkg.files) {
     if (!TEXT_EXTENSIONS.test(file.name)) continue;
     if (file.size > 2 * 1024 * 1024) continue; // skip huge bundles
     const path = file.name.replace(/^package\//, "");
-    // Only scan code that can actually run at install time or import time —
-    // for v0 we scan everything but weight install-hook files implicitly via
-    // the hook finding above.
+    const tier = tiers.get(path) ?? TIER.RUNTIME;
+    const before = findings.length;
     scanSource(path, file.data.toString("utf8"), findings);
+    for (let i = before; i < findings.length; i++) {
+      findings[i].tier = tier;
+      findings[i].severity = Math.round(findings[i].severity * TIER_WEIGHT[tier]);
+      if (tier === TIER.INSTALL) {
+        findings[i].detail = findings[i].detail
+          ? `${findings[i].detail}; runs at install time`
+          : "runs at install time";
+      }
+    }
   }
 
   // Cap repeated per-file findings so one pattern doesn't swamp the card.
   // The key must normalize away file paths — both "(path)" and "in path"
-  // forms — or every file counts as a distinct finding.
+  // forms — or every file counts as a distinct finding. Sort by severity
+  // first so the surviving copies are the install-time ones, not whichever
+  // file happened to be scanned first.
   const deduped = [];
   const seenTitles = new Map();
-  for (const f of findings) {
+  for (const f of [...findings].sort((a, b) => b.severity - a.severity)) {
     const key = f.title.replace(/\s*\(.*\)/, "").replace(/ in .+$/, "");
     const count = seenTitles.get(key) ?? 0;
     if (count < 2) deduped.push(f);

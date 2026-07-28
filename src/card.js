@@ -89,8 +89,16 @@ export function renderCard(report) {
     line(`${BOLD}findings${RESET}`);
     for (const f of findings) {
       const color = f.severity >= 25 ? RED : f.severity >= 10 ? YELLOW : DIM;
-      for (const l of wrap(`${f.title}`, "  • ")) {
-        line(`${color}  • ${l}`);
+      // The tier is the most decision-relevant fact about a code finding:
+      // install-time code runs before you can read it.
+      const badge =
+        f.tier === "install"
+          ? `${RED}[install-time]${RESET}${color} `
+          : f.tier === "inert"
+            ? `${DIM}[test/example]${RESET}${color} `
+            : "";
+      for (const [i, l] of wrap(`${f.title}`, "  • ").entries()) {
+        line(`${color}  • ${i === 0 ? badge : ""}${l}`);
       }
       if (f.detail) {
         for (const l of wrap(f.detail, "      ")) line(`${DIM}      ${l}`);
