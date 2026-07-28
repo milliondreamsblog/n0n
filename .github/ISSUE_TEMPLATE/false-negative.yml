@@ -1,0 +1,41 @@
+name: False negative
+description: A package with a real problem was scored low-risk
+title: "false negative: <package name>"
+labels: ["detection", "false-negative"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach live malware or working payloads.** Describe the
+        technique in prose. If the package is still live on npm, report it to
+        npm directly as well — sx is not a takedown channel (see SECURITY.md).
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      placeholder: "some-package@1.2.3"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of `sx scan --json <package>`
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: technique
+    attributes:
+      label: What the package does that sx missed
+      description: >
+        Describe the mechanism — where the payload lives, how it is triggered,
+        how it is obfuscated. Prose only, no runnable code.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have not attached a working payload
+          required: true

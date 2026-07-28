@@ -4,6 +4,20 @@
   "description": "sx — see what an npm package will do before you run it. A safer npx.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/milliondreamsblog/n0n.git"
+  },
+  "bugs": {
+    "url": "https://github.com/milliondreamsblog/n0n/issues"
+  },
+  "homepage": "https://github.com/milliondreamsblog/n0n#readme",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "bin": {
     "sx": "src/index.js",
     "sx-mcp": "src/mcp.js"

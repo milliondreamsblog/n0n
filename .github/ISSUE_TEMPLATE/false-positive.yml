@@ -1,0 +1,41 @@
+name: False positive
+description: A legitimate package was scored suspicious (or unfairly cautioned)
+title: "false positive: <package name>"
+labels: ["detection", "false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are the most valuable ones we get. Every legitimate
+        package that trips the heuristics teaches us something about what
+        normal code looks like.
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      placeholder: "some-package@1.2.3"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of `sx scan --json <package>`
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why the flagged behaviour is legitimate
+      description: >
+        What is the code actually doing? e.g. "the postinstall downloads a
+        prebuilt binary for the host platform, which is standard for native
+        modules".
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: sx version / commit
+    validations:
+      required: true

@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security issue in sx itself
+    url: https://github.com/milliondreamsblog/n0n/security/advisories/new
+    about: >
+      Report privately — especially analysis-time code execution, parser DoS,
+      or a way to make a real payload score low-risk. See SECURITY.md.
+  - name: Report a malicious npm package
+    url: https://www.npmjs.com/support
+    about: >
+      sx is not a takedown channel. Report the package to npm directly. If sx
+      failed to flag it, open a false-negative issue here too.

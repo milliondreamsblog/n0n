@@ -1,5 +1,11 @@
 # sx
 
+[![CI](https://github.com/milliondreamsblog/n0n/actions/workflows/ci.yml/badge.svg)](https://github.com/milliondreamsblog/n0n/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](#principles)
+[![recall](https://img.shields.io/badge/recall-100%25-brightgreen.svg)](#benchmarks)
+[![false positives](https://img.shields.io/badge/false%20positives-0%25-brightgreen.svg)](#benchmarks)
+
 **See what an npm package will do — before you run it.**
 
 `npx some-package` executes code from the internet with your full user
@@ -126,13 +132,39 @@ Current: **100% recall (10/10)**, **0.0% false positives (0/132)**.
 ## Development
 
 ```sh
-npm test          # unit tests (node:test, no deps)
+git clone https://github.com/milliondreamsblog/n0n
+cd n0n
+npm test                      # 25 tests — nothing to install, there are no deps
 node src/index.js scan express
 ```
 
+## Contributing
+
+Contributions are welcome — especially **detection errors**. If a legitimate
+package scores `suspicious`, or a bad one scores `low-risk`, that is the most
+useful issue you can file; there are templates for both.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short version: no
+dependencies, ever; every detection change must clear both accuracy bars and
+report the numbers; verdicts never escalate past `suspicious`.
+
+Good first issues: add popular packages to the false-positive corpus, or add an
+attack pattern sx doesn't yet catch to `bench/true-positives.js`.
+
+## Security
+
+sx is a heuristic signal, not a guarantee — `low-risk` means "no known-bad
+patterns found", not "safe". See [SECURITY.md](SECURITY.md) for the threat
+model and how to report a vulnerability in sx itself (privately, please).
+
 ## Roadmap
 
-See `docs/ideas/01-better-npm-npx/EXECUTION-PLAN.md` in the planning repo:
-verdict API with cached scans, LLM-assisted diff review of new releases,
-signed verdicts (sigstore), MCP server so coding agents can call `sx scan`
-before installing anything.
+- LLM-assisted diff review of new releases — catch compromised-maintainer
+  attacks by reasoning about what changed, not just pattern matching
+- Signed, reproducible verdicts (sigstore/Rekor)
+- Registries beyond npm — PyPI has the same problem
+- Hosted verdict API so scans are shared rather than repeated
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: tests (node ${{ matrix.node }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22"]
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No install step: sx has zero dependencies, and CI proves it stays that
+      # way — if anything ever needs node_modules, this job breaks first.
+      - name: Assert no dependencies
+        shell: bash
+        run: |
+          node -e '
+            const p = require("./package.json");
+            const deps = Object.keys(p.dependencies ?? {});
+            const dev = Object.keys(p.devDependencies ?? {});
+            if (deps.length || dev.length) {
+              console.error("sx must have zero dependencies, found:", [...deps, ...dev]);
+              process.exit(1);
+            }
+          '
+      - run: npm test
+
+  recall:
+    name: recall benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Offline and deterministic — synthetic samples only, safe on every PR.
+      - run: npm run bench:recall
+
+  false-positives:
+    name: false-positive benchmark
+    # Scans 132 real packages from the npm registry: too slow and too
+    # network-dependent to gate every PR, so it runs on main, weekly, and
+    # on demand. A regression here is a release blocker.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm run bench:fp

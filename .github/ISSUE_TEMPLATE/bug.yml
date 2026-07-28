@@ -1,0 +1,31 @@
+name: Bug report
+description: sx crashed, hung, or behaved incorrectly
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Command you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Node version and OS
+      placeholder: "node 20.11.0, Windows 11"
+    validations:
+      required: true

@@ -1,0 +1,27 @@
+name: Weekly benchmark
+
+# The npm ecosystem moves under us: packages gain install hooks, add binaries,
+# change maintainers. A detector tuned once drifts. This re-runs the corpus
+# weekly so precision regressions surface as an issue rather than as a user
+# losing trust in the tool.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm run bench:recall
+      - name: False-positive sweep
+        run: npm run bench:fp | tee bench-output.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-output
+          path: bench-output.txt
