@@ -11,7 +11,10 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "bench": "node bench/true-positives.js && node bench/false-positives.js",
+    "bench:recall": "node bench/true-positives.js",
+    "bench:fp": "node bench/false-positives.js"
   },
   "keywords": [
     "security",

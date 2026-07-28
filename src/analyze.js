@@ -8,9 +8,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const TEXT_EXTENSIONS = /\.(c?m?js|jsx|ts|tsx|json|sh|ps1|cmd|bat)$/i;
 const BINARY_EXTENSIONS = /\.(exe|dll|so|dylib|node|bin)$/i;
 
-function finding(severity, title, detail) {
-  return { severity, title, detail };
+// A finding is either about the package's *reputation* (age, downloads,
+// maintainer count — ambient context) or its *behavior* (what the shipped code
+// actually does). The distinction matters for scoring: a proven install base
+// excuses weak reputation signals, but never excuses fresh dangerous code.
+function finding(severity, title, detail, kind = "reputation") {
+  return { severity, title, detail, kind };
 }
+const behavior = (severity, title, detail) =>
+  finding(severity, title, detail, "behavior");
 
 // Bundled/minified outputs of legitimate libraries are full of eval, huge
 // base64 blobs, and packed strings — near-zero signal, constant noise.
@@ -32,13 +38,13 @@ function scanSource(path, text, findings) {
 
   if (flags.length > 0) {
     findings.push(
-      finding(10, `Obfuscation signals in ${path}`, flags.join(", ")),
+      behavior(10, `Obfuscation signals in ${path}`, flags.join(", ")),
     );
   }
   // The classic exfiltration triple: read env + talk to network (+ shell).
   if (usesEnv && usesNetwork) {
     findings.push(
-      finding(
+      behavior(
         usesChildProcess ? 25 : 15,
         `Reads process.env and makes network calls (${path})`,
         usesChildProcess ? "also spawns child processes" : null,
@@ -46,7 +52,7 @@ function scanSource(path, text, findings) {
     );
   } else if (usesChildProcess && usesNetwork) {
     findings.push(
-      finding(15, `Spawns processes and makes network calls (${path})`, null),
+      behavior(15, `Spawns processes and makes network calls (${path})`, null),
     );
   }
 }
@@ -102,7 +108,7 @@ export function analyze(pkg) {
   );
   for (const hook of installHooks) {
     findings.push(
-      finding(25, `Runs a ${hook} script on install`, `"${scripts[hook]}"`),
+      behavior(25, `Runs a ${hook} script on install`, `"${scripts[hook]}"`),
     );
   }
 
@@ -110,7 +116,7 @@ export function analyze(pkg) {
   const binaries = pkg.files.filter((f) => BINARY_EXTENSIONS.test(f.name));
   if (binaries.length > 0) {
     findings.push(
-      finding(15, `Ships ${binaries.length} precompiled binary file(s)`,
+      behavior(15, `Ships ${binaries.length} precompiled binary file(s)`,
         binaries.slice(0, 3).map((f) => f.name.replace(/^package\//, "")).join(", ")),
     );
   }
@@ -137,10 +143,9 @@ export function analyze(pkg) {
     seenTitles.set(key, count + 1);
   }
 
-  // Trust dampener: heuristics like install hooks and env+network access are
-  // normal for massively-adopted packages (esbuild downloads its platform
-  // binary in postinstall). Scale raw score down by proven install base + age
-  // so the same signals still surface but read as "worth knowing", not alarm.
+  // Trust dampener: install hooks and env+network access are normal for
+  // massively-adopted packages (esbuild downloads its platform binary in
+  // postinstall), so a proven install base discounts the score.
   const rawScore = deduped.reduce((sum, f) => sum + f.severity, 0);
   let trust = 1;
   if (ageDays !== null && ageDays > 365 && pkg.weeklyDownloads !== null) {
@@ -152,7 +157,19 @@ export function analyze(pkg) {
     // still earns a modest discount so verdicts don't flap on network luck.
     trust = 0.8;
   }
-  const score = Math.round(rawScore * trust);
+
+  // ...but reputation is earned by the *package*, not by code published an
+  // hour ago. In a compromised-maintainer attack the install base is exactly
+  // what makes it dangerous, so behavior findings in a fresh release are
+  // scored at full weight. Without this, popularity becomes a hiding place.
+  const freshRelease = versionAgeHours !== null && versionAgeHours < 72;
+  const isDiscounted = (f) => !(freshRelease && f.kind === "behavior");
+  const score = Math.round(
+    deduped.reduce(
+      (sum, f) => sum + f.severity * (isDiscounted(f) ? trust : 1),
+      0,
+    ),
+  );
   const verdict = score >= 50 ? "suspicious" : score >= 20 ? "caution" : "low-risk";
 
   return {
@@ -160,6 +177,7 @@ export function analyze(pkg) {
     score,
     rawScore,
     trust,
+    freshRelease,
     findings: deduped.sort((a, b) => b.severity - a.severity),
     facts: {
       name: pkg.name,

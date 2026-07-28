@@ -47,6 +47,31 @@ Exit codes: `0` ok, `2` analysis failed, `3` verdict was suspicious.
 - **Trust signals** — package age, release recency, weekly downloads,
   maintainer count, shipped binaries
 
+## Scoring model
+
+Findings are split into two kinds, and the split is the whole trick:
+
+- **Reputation** — package age, weekly downloads, maintainer count, missing
+  README. Ambient context about the project.
+- **Behavior** — what the shipped code actually does: install hooks, reading
+  `process.env` next to network calls, obfuscated blobs, shipped binaries.
+
+A proven install base discounts *reputation* findings (esbuild's postinstall
+binary download is fine — 261M people would have noticed). It never discounts
+*behavior* findings in a release published within 72 hours, because that is
+precisely the shape of a compromised-maintainer attack: popularity is the
+weapon, so it must not become a hiding place.
+
+## Benchmarks
+
+```sh
+npm run bench          # both, exits non-zero if either bar is missed
+npm run bench:recall   # synthetic attack samples — target >90% suspicious
+npm run bench:fp       # 132 real popular packages — target <2% suspicious
+```
+
+Current: **100% recall (10/10)**, **0.0% false positives (0/132)**.
+
 ## Principles
 
 - **Zero runtime dependencies.** A tool that judges dependency trees should
