@@ -52,6 +52,77 @@ function wrap(text, indent) {
   return lines;
 }
 
+const ASSESSMENT_STYLE = {
+  routine: { color: GREEN, label: "ROUTINE" },
+  unusual: { color: YELLOW, label: "UNUSUAL" },
+  alarming: { color: RED, label: "ALARMING" },
+};
+
+export function renderDiffSummary(result, review, llmEnabled) {
+  const title = ` sx diff · ${result.name} ${result.from} → ${result.to} `;
+  process.stdout.write(
+    `┌─${BOLD}${title}${RESET}` +
+      "─".repeat(Math.max(1, WIDTH - title.length - 2)) +
+      "┐\n",
+  );
+
+  const installChanges = result.changes.filter((c) => c.tier === "install");
+  line(
+    `${DIM}files changed${RESET} ${String(result.changes.length).padEnd(8)}` +
+      `${DIM}install-time${RESET} ${
+        installChanges.length ? RED + installChanges.length : GREEN + "0"
+      }`,
+  );
+
+  if (result.scriptChanges.length > 0) {
+    line();
+    line(`${RED}${BOLD}install hooks changed${RESET}`);
+    for (const c of result.scriptChanges) {
+      for (const l of wrap(`${c.hook}: ${c.before ?? "(none)"} → ${c.after ?? "(none)"}`, "  ")) {
+        line(`${RED}  ${l}`);
+      }
+    }
+  }
+  if (result.addedDeps.length > 0) {
+    line(`${YELLOW}new dependencies: ${result.addedDeps.join(", ")}`);
+  }
+  if (result.maintainersBefore.join() !== result.maintainersAfter.join()) {
+    line(`${YELLOW}maintainers changed: ${result.maintainersBefore.join(", ")} → ${result.maintainersAfter.join(", ")}`);
+  }
+
+  line();
+  const shown = result.changes.slice(0, 12);
+  for (const c of shown) {
+    const mark = c.kind === "added" ? "+" : c.kind === "removed" ? "-" : "~";
+    const tag = c.tier === "install" ? `${RED}[install-time]${RESET}${DIM} ` : "";
+    line(`${DIM}  ${mark} ${tag}${c.path}`);
+  }
+  if (result.changes.length > shown.length) {
+    line(`${DIM}  … ${result.changes.length - shown.length} more`);
+  }
+
+  if (review && !review.error) {
+    const style = ASSESSMENT_STYLE[review.assessment] ?? ASSESSMENT_STYLE.unusual;
+    line();
+    line(`${BOLD}model review${RESET}  ${style.color}${BOLD}${style.label}${RESET}`);
+    for (const l of wrap(review.summary, "  ")) line(`  ${l}`);
+    for (const c of review.concerns ?? []) {
+      const color = c.severity === "high" ? RED : c.severity === "medium" ? YELLOW : DIM;
+      for (const [i, l] of wrap(c.detail, "  • ").entries()) {
+        line(`${color}  ${i === 0 ? "• " : "  "}${l}`);
+      }
+    }
+  } else if (review?.error) {
+    line();
+    line(`${DIM}model review unavailable: ${review.error}`);
+  } else if (!llmEnabled) {
+    line();
+    line(`${DIM}set SX_LLM_API_KEY to add an AI review of this diff`);
+  }
+
+  process.stdout.write("└" + "─".repeat(WIDTH - 1) + "┘\n");
+}
+
 export function renderCard(report) {
   const { verdict, score, findings, facts } = report;
   const style = VERDICT_STYLE[verdict];

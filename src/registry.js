@@ -36,6 +36,20 @@ export function parseSpec(spec) {
 }
 
 /**
+ * List published versions oldest-first, with publish timestamps.
+ * Used to find "the version before this one" for diff review.
+ */
+export async function fetchVersionList(name) {
+  const packument = await getJson(
+    `${REGISTRY}/${encodeURIComponent(name).replace("%2F", "/")}`,
+  );
+  const times = packument.time ?? {};
+  return Object.keys(packument.versions ?? {})
+    .map((version) => ({ version, published: times[version] ?? null }))
+    .sort((a, b) => Date.parse(a.published ?? 0) - Date.parse(b.published ?? 0));
+}
+
+/**
  * Fetch everything sx needs to judge a package:
  * registry metadata, weekly downloads, and the extracted tarball contents.
  */
