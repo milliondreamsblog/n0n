@@ -138,6 +138,16 @@ npm test                      # 25 tests — nothing to install, there are no de
 node src/index.js scan express
 ```
 
+## Documentation
+
+| Document | What it answers |
+|---|---|
+| [WALKTHROUGH.md](WALKTHROUGH.md) | Run every feature yourself in 5 minutes, with real output |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the code fits together and where to extend it |
+| [docs/DETECTION.md](docs/DETECTION.md) | Every heuristic, every number, and the reasoning |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | What a PR has to satisfy |
+| [SECURITY.md](SECURITY.md) | Threat model and how to report a flaw in sx |
+
 ## Contributing
 
 Contributions are welcome — especially **detection errors**. If a legitimate

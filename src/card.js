@@ -58,7 +58,7 @@ const ASSESSMENT_STYLE = {
   alarming: { color: RED, label: "ALARMING" },
 };
 
-export function renderDiffSummary(result, review, llmEnabled) {
+export function renderDiffSummary(result, review, llmEnabled, report = null) {
   const title = ` sx diff · ${result.name} ${result.from} → ${result.to} `;
   process.stdout.write(
     `┌─${BOLD}${title}${RESET}` +
@@ -118,6 +118,18 @@ export function renderDiffSummary(result, review, llmEnabled) {
   } else if (!llmEnabled) {
     line();
     line(`${DIM}set SX_LLM_API_KEY to add an AI review of this diff`);
+  }
+
+  if (report) {
+    const style = VERDICT_STYLE[report.verdict];
+    line();
+    const raised = report.llm && report.llm.concernCount > 0;
+    line(
+      `${DIM}verdict on ${result.name}@${result.to}${RESET}  ` +
+        `${style.color}${BOLD}${style.label}${RESET} ${DIM}(score ${report.score}${
+          raised ? ", raised by model review" : ""
+        })${RESET}`,
+    );
   }
 
   process.stdout.write("└" + "─".repeat(WIDTH - 1) + "┘\n");

@@ -4,8 +4,9 @@ import { spawn } from "node:child_process";
 import { fetchPackage, parseSpec, fetchVersionList } from "./registry.js";
 import { analyze } from "./analyze.js";
 import { renderCard, renderDiffSummary } from "./card.js";
+
 import { diffVersions, renderDiff } from "./diff.js";
-import { reviewDiff, isConfigured } from "./llm.js";
+import { reviewDiff, isConfigured, mergeReview } from "./llm.js";
 
 const USAGE = `sx — see what an npm package will do before you run it
 
@@ -85,13 +86,31 @@ async function runDiff(argv) {
     review = await reviewDiff(result, rendered.text);
   }
 
+  // The diff is only half the answer: what matters is the verdict on the
+  // version you are about to install. Scan the target and fold the review in
+  // — mergeReview may raise that verdict but never lower it.
+  const heuristicReport = analyze(await fetchPackage(`${name}@${target}`));
+  const report = review ? mergeReview(heuristicReport, review) : heuristicReport;
+  const suspicious = report.verdict === "suspicious";
+
   if (json) {
-    process.stdout.write(JSON.stringify({ ...result, changes: result.changes.map((c) => ({ path: c.path, kind: c.kind, tier: c.tier })), review }, null, 2) + "\n");
-    process.exit(review?.assessment === "alarming" ? 3 : 0);
+    process.stdout.write(
+      JSON.stringify(
+        {
+          ...result,
+          changes: result.changes.map((c) => ({ path: c.path, kind: c.kind, tier: c.tier })),
+          review,
+          report,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    process.exit(suspicious ? 3 : 0);
   }
 
-  renderDiffSummary(result, review, isConfigured());
-  process.exit(review?.assessment === "alarming" ? 3 : 0);
+  renderDiffSummary(result, review, isConfigured(), report);
+  process.exit(suspicious ? 3 : 0);
 }
 
 async function main() {
