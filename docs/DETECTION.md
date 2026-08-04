@@ -4,24 +4,23 @@ How `sx` decides that a package is risky. This is the reference for anyone
 adding or tuning a heuristic — every number below is transcribed from the code,
 not from memory. If you change a threshold, change it here too.
 
-Sources: [`src/analyze.js`](../src/analyze.js),
-[`src/reachability.js`](../src/reachability.js),
-[`src/typosquat.js`](../src/typosquat.js), [`src/llm.js`](../src/llm.js).
+Sources: [`analyze.js`](../src/analyze.js),
+[`reachability.js`](../src/reachability.js),
+[`typosquat.js`](../src/typosquat.js), [`llm.js`](../src/llm.js).
 
 ## 1. The two failure modes
 
 **False positives destroy trust.** If `sx` flags `express` or `typescript`, the
-user learns the warning means nothing. They stop reading the card and type
-`run` reflexively — the tool has now trained someone to click through a
-security prompt. This failure is silent and permanent.
+user learns the warning means nothing. They stop reading the card and type `run`
+reflexively — the tool has now trained someone to click through a security
+prompt. This failure is silent and permanent.
 
 **False negatives destroy the point.** A scanner that misses a `postinstall`
-credential harvester provided false assurance at exactly the moment it mattered.
-`low-risk` was printed, the user relaxed, the payload ran.
-
-Neither number means anything alone: 100% recall is trivially reached by
-flagging everything, 0% false positives by flagging nothing. Both are measured,
-both gate CI, and a PR must report both.
+credential harvester provided false assurance at exactly the moment it mattered:
+`low-risk` was printed, the user relaxed, the payload ran. Neither number means
+anything alone — 100% recall is trivially reached by flagging everything, 0%
+false positives by flagging nothing — so both are measured, both gate CI, and a
+PR must report both.
 
 | benchmark | file | corpus | bar | current |
 |---|---|---|---|---|
@@ -33,12 +32,10 @@ no working payloads — modeled on documented attacks (Shai-Hulud, `event-stream
 typosquat clones). The FP corpus is *live*: it fetches all 132 names in
 `POPULAR` and analyzes the real tarballs. That list does double duty as the
 typosquat reference set and the known-good corpus, which is why adding to it is
-a real contribution.
-
-Current recall scores run 65–105. The two lowest — "base64 stage-2 downloader"
-and "eval over network response at import time" — sit at **65**, only 15 points
-above the `suspicious` line, so a change that shaves points off obfuscation
-scoring breaks recall.
+a real contribution. Recall scores run 65–105; the two lowest ("base64 stage-2
+downloader", "eval over network response at import time") sit at **65**, only 15
+points above the `suspicious` line, so a change that shaves points off
+obfuscation scoring breaks recall.
 
 ## 2. Verdict scale
 
@@ -52,10 +49,10 @@ scoring breaks recall.
 | `suspicious` | `>= 50` | Several signals stacked, or one strong one. |
 
 **What `low-risk` does NOT mean.** Not safe, not audited, not reviewed, not
-benign. It means *this specific set of heuristics found nothing*. A package
-whose payload lives in a transitive dependency, or is fetched at runtime, or is
-written in a style none of these regexes match, scores `low-risk`. The verdict
-is the absence of evidence.
+benign. It means *this specific set of heuristics found nothing*. A package whose
+payload lives in a transitive dependency, or is fetched at runtime, or is written
+in a style none of these regexes match, scores `low-risk` — the verdict is the
+absence of evidence.
 
 **Why there is no `malicious` verdict.** "Malicious" is an accusation about a
 person, not a description of code. It implies intent, is defamatory when wrong,
@@ -88,8 +85,8 @@ the shipped code does). It determines eligibility for the trust dampener — §4
 | Obfuscation signals (any of four, one finding) | **10** | behavior | `analyze.js:40-44` |
 
 Age buckets are exclusive (`if`/`else if`) — a 3-day-old package scores 35, not
-55. Install hooks are *not*: `preinstall` plus `postinstall` is two findings, 50
-points, before the tarball is read.
+55. Install hooks are *not*: `preinstall` plus `postinstall` is two findings and
+50 points before the tarball is read.
 
 ### Exact patterns
 
@@ -113,11 +110,11 @@ BINARY_EXTENSIONS = /\.(exe|dll|so|dylib|node|bin)$/i
 Obfuscation signals correlate, and charging per-signal would over-score
 minified-but-legitimate files that slip past the bundle filter.
 
-The env/network/childproc combinations are mutually exclusive (`if`/`else if`).
-`process.env` alone, `fetch` alone, or `execSync` alone score **nothing**. Only
-the *pairing* is a signal — that is the main reason the FP rate is 0%. Nearly
-every real package reads `process.env`; almost none read it next to a network
-call.
+The env/network/childproc combinations are mutually exclusive (`if`/`else if`),
+and `process.env` alone, `fetch` alone, or `execSync` alone score **nothing**.
+Only the *pairing* is a signal — that is the main reason the FP rate is 0%.
+Nearly every real package reads `process.env`; almost none read it next to a
+network call.
 
 ### Typosquatting
 
@@ -129,8 +126,7 @@ call.
 - Threshold is length-sensitive: `maxDist = bare.length <= 4 ? 1 : 2`. Short
   names get distance 1 only, since at distance 2 nearly every 4-letter name
   collides with something.
-- Scoped packages compare only the part after the slash: `@evil/react` is
-  checked as `react`.
+- Scoped packages compare only the part after the slash: `@evil/react` → `react`.
 
 ## 4. Reputation vs behavior
 
@@ -145,7 +141,7 @@ weekly downloads has been looked at; its single-maintainer finding is noise, and
 discounting it is correct. Behavior findings are different, and the
 compromised-maintainer case is why.
 
-**Worked example** — the `popular-logger` sample (`bench/true-positives.js:90`).
+**Worked example** — the `popular-logger` sample (`bench/true-positives.js:91`).
 An established package: 1500 days old, 4M weekly downloads, real README. A
 maintainer's npm token is stolen; the attacker publishes a patch six hours ago
 adding `"postinstall": "node telemetry.js"`, and that file reads `process.env`,
@@ -163,14 +159,12 @@ Reputation (10 + 5) is discounted to 9. Behavior (25 + 38 = 63) is charged in
 full. `9 + 63 = 72` → `suspicious`.
 
 The counterfactual: discount *everything* uniformly at 0.6 and the same package
-scores `78 × 0.6 ≈ 47` → **`caution`**. It prints as an amber advisory and most
-people install it. The install base — the very thing that made the compromise
-worth executing — would have been what hid it. That is the failure the split
-prevents.
-
-(Verified: dating the same release 200 days back drops it to `caution 41`, which
-is the correct reading — an install hook unchanged across 200 days of downloads
-is not news.)
+scores `78 × 0.6 ≈ 47` → **`caution`** — an amber advisory most people install
+through. The install base, the very thing that made the compromise worth
+executing, would have been what hid it. That is the failure the split prevents.
+(Verified the other way too: dating the same release 200 days back drops it to
+`caution 41` — an install hook unchanged across 200 days of downloads is not
+news.)
 
 ## 5. The trust dampener
 
@@ -187,30 +181,26 @@ is not news.)
 The fourth branch is network robustness, not a security judgement: when the
 downloads API hiccups or a scoped package has no public counts, a two-year-old
 package still earns a modest discount so verdicts do not flap on whether one
-HTTP call succeeded. `esbuild` is the canonical case for the dampener existing
-at all: it downloads a platform binary in `postinstall` — 25 points of behavior
-finding plus shipped binaries — and is entirely legitimate. Undiscounted it
-would sit at `caution` forever, and the tool's credibility with it.
+HTTP call succeeded. `esbuild` is the canonical case for the dampener existing at
+all: it downloads a platform binary in `postinstall` — 25 points of behavior
+finding plus shipped binaries — and is entirely legitimate. Undiscounted it would
+sit at `caution` forever, and the tool's credibility with it.
 
 ### The freshRelease carve-out
 
 ```js
 const freshRelease = versionAgeHours !== null && versionAgeHours < 72;
 const isDiscounted = (f) => !(freshRelease && f.kind === "behavior");
-const score = Math.round(
-  deduped.reduce((sum, f) => sum + f.severity * (isDiscounted(f) ? trust : 1), 0),
-);
+// score = Σ severity × (isDiscounted(f) ? trust : 1), rounded
 ```
 
 If the version under inspection was published **less than 72 hours ago**,
-behavior findings are exempt from the discount and score at full weight.
-Reputation findings are still discounted.
-
-Reputation is earned by the *package*, over time, by people running it. Code
-published ninety minutes ago has earned nothing — nobody has run it yet.
-Applying yesterday's trust to today's bytes is exactly the mistake a
-compromised-maintainer attack exploits. The carve-out is what stops popularity
-from being a hiding place.
+behavior findings are exempt from the discount and score at full weight;
+reputation findings are still discounted. Reputation is earned by the *package*,
+over time, by people running it — code published ninety minutes ago has earned
+nothing, because nobody has run it yet. Applying yesterday's trust to today's
+bytes is exactly the mistake a compromised-maintainer attack exploits. The
+carve-out is what stops popularity from being a hiding place.
 
 **Threshold asymmetry worth knowing:** the *finding* "this version was published
 Nh ago" fires below **48h** (`analyze.js:88`), but the *carve-out* extends to
@@ -221,10 +211,10 @@ one number, look at the other.
 ## 6. Reachability tiers
 
 A payload in the file your `postinstall` hook executes runs on `npm install`,
-unconditionally, before you have read a line of it. The same payload in
+unconditionally, before you have read a line of it; the same payload in
 `test/fixtures/` may never execute. `classifyFiles` (`reachability.js:56-124`)
-assigns every file a tier; `analyze.js:129-145` multiplies that file's findings
-by the tier weight.
+assigns every file a tier, and `analyze.js:129-145` multiplies that file's
+findings by the tier weight.
 
 | tier | weight | what it is |
 |---|---|---|
@@ -247,7 +237,7 @@ Measured, the same env+network payload in three locations: install-time
 3. **Walk** breadth-first from each seed set, matching `require("…")`,
    `import … from "…"`, `export … from "…"`, and dynamic `import("…")`
    (`reachability.js:7-8`). `resolveLocal` resolves relative specifiers only — a
-   bare specifier is an external dep and the walk stops. Candidates: exact,
+   bare specifier is an external dep and the walk stops there. Candidates: exact,
    `.js`, `.cjs`, `.mjs`, plus the three `index.*` forms.
 4. **Install wins ties.** `if (!tiers.has(path) || tier === TIER.INSTALL)` — a
    file reachable from both an install hook and `main` is `install`.
@@ -256,20 +246,20 @@ Measured, the same env+network payload in three locations: install-time
    `/(^|\/)(test|tests|__tests__|spec|example|examples|demo|fixtures?|docs?|benchmark|benchmarks|\.github)\//i`
 
 Two consequences to internalize. **Unreached non-test files default to
-`runtime`, not `inert`** — the fallback is conservative; being unreferenced is
-not a free pass. And **`inert` is 0.25×, not 0** — hiding a payload in
-`examples/` is a real if lazy technique, so it is discounted, never dismissed.
-Install-tier findings also get `"; runs at install time"` appended to their
-detail (`analyze.js:139-143`), which the card renders as `[install-time]`.
+`runtime`, not `inert`** — being unreferenced is not a free pass. And **`inert`
+is 0.25×, not 0** — hiding a payload in `examples/` is a real if lazy technique,
+so it is discounted, never dismissed. Install-tier findings also get
+`"; runs at install time"` appended to their detail (`analyze.js:139-143`),
+which the card renders as `[install-time]`.
 
 ## 7. Noise controls
 
 **Bundle / minified path skipping.** `scanSource` returns immediately for paths
 matching `/\.min\.c?m?js$|(^|\/)(dist|build|umd|vendor|compiled|bundles?)\//i`
 (`analyze.js:24, 27`). Bundled output of legitimate libraries is full of `eval`,
-packed strings and base64 blobs — near-zero signal, constant noise. This is the
-single largest contributor to the 0% FP rate, and also the most obvious place to
-hide a payload (§10).
+packed strings and base64 blobs — near-zero signal, constant noise. It is the
+single largest contributor to the 0% FP rate, and the most obvious place to hide
+a payload (§10).
 
 **Large-file skip and extension filter.** Files over **2 MiB** are not scanned
 (`analyze.js:131`, on `file.size`) and not traversed during the reachability
@@ -281,8 +271,7 @@ bound only. Only `TEXT_EXTENSIONS` files are scanned at all (`analyze.js:130`).
 ```js
 for (const f of [...findings].sort((a, b) => b.severity - a.severity)) {
   const key = f.title.replace(/\s*\(.*\)/, "").replace(/ in .+$/, "");
-  if ((seenTitles.get(key) ?? 0) < 2) deduped.push(f);
-  …
+  if ((seenTitles.get(key) ?? 0) < 2) deduped.push(f);  // then seenTitles.set(key, +1)
 }
 ```
 
@@ -292,10 +281,9 @@ distinct key and the cap never engages. And the list is **sorted by severity
 descending before capping**, so the survivors are the highest-scoring instances
 (in practice the install-tier ones) rather than whichever file the tar reader
 emitted first. A finding that embeds a path in a third format will not dedup
-unless you extend that normalization.
-
-Order of operations, for debugging a score: tier weights apply **before** dedup;
-`rawScore` is the post-dedup, pre-trust sum; `score` applies trust last.
+unless you extend that normalization. Order of operations, for debugging a score:
+tier weights apply **before** dedup; `rawScore` is the post-dedup, pre-trust sum;
+`score` applies trust last.
 
 ## 8. The LLM layer
 
@@ -342,21 +330,26 @@ comment, a README, or a string literal. Three defences, in priority order:
 Defence 1 is the one that matters; 2 and 3 reduce noise and are not the security
 boundary.
 
-**Current wiring, honestly:** `sx diff` calls `reviewDiff` and renders the review
-alongside the diff summary (`index.js:78-93`), exiting `3` on `alarming`.
-`mergeReview` is exported and unit-tested but is **not** yet called on the `sx
-scan` path — LLM output does not currently fold into a scan score. If you wire
-it up, use that function; do not reimplement the escalation logic.
+**Current wiring.** `sx diff` calls `reviewDiff`, then scans the *target*
+version and folds the review into that report with `mergeReview` (`index.js`,
+`runDiff()`). The merged verdict prints on the last line of the diff card and
+determines the exit code (`3` when it lands on `suspicious`).
+
+`sx scan` does **not** call the LLM at all — a scan looks at one version in
+isolation, and the model's value is in reading *change*. If you add a review
+path to `sx scan`, route it through `mergeReview`; do not reimplement the
+escalation logic, because the one-way property is what makes prompt injection
+survivable.
 
 ## 9. How to add a heuristic
 
 1. **Pick the kind.** `behavior(...)` for what the shipped code does;
    `finding(...)` (default `reputation`) for ambient project context. This
    decides whether the trust dampener can discount it, so getting it wrong is a
-   real bug, not a labelling nit. Rule of thumb: if a compromised maintainer
-   could introduce it in a patch release, it is `behavior`.
+   real bug. Rule of thumb: if a compromised maintainer could introduce it in a
+   patch release, it is `behavior`.
 2. **Place it.** Metadata checks go in the first block of `analyze`, before
-   install scripts. Per-file content checks go in `scanSource`, which gets tier
+   install scripts; per-file content checks go in `scanSource`, which gets tier
    weighting and bundle-path skipping for free — prefer it.
 3. **Pick a severity** by calibrating against §3, not by inventing a scale. 40 is
    reserved for typosquats; 25 is "runs automatically or exfiltrates"; 15 is
@@ -368,21 +361,19 @@ it up, use that function; do not reimplement the escalation logic.
    triggers it and one that must *not*. The negative test protects the FP rate.
 6. **New attack class?** Add an inert sample to `bench/true-positives.js` —
    `.invalid` hostnames, no working payloads. Never commit live malware.
-7. **Run `npm test`, `npm run bench:recall`, `npm run bench:fp`** and report the
-   numbers.
+7. **Run `npm test`, `npm run bench:recall`, `npm run bench:fp`**; report numbers.
 
 **The bars a PR must clear:** recall >90%, FP <2%. CI enforces both; the
 benchmark scripts exit non-zero on failure. Baseline is 100% / 0.0%, and a PR
-that moves either number must state before/after in its description. Do not
-trade one against the other — and recall from §1 that two samples sit only 15
-points above the line, so a small reduction elsewhere can break recall.
+that moves either number must state before/after in its description. Do not trade
+one against the other — and recall from §1 that two samples sit only 15 points
+above the line, so a small reduction elsewhere can break recall.
 
 ## 10. Known limitations
 
 - **Static analysis only.** Regex over source text — no parsing, no AST, no
-  data-flow. `process["e"+"nv"]` defeats the env check;
-  `global[atob("ZmV0Y2g=")]` defeats the network check. Anything computed at
-  runtime is invisible.
+  data-flow. `process["e"+"nv"]` defeats the env check, `global[atob("ZmV0Y2g=")]`
+  defeats the network check, and anything computed at runtime is invisible.
 - **No dependency-tree traversal.** `sx` analyzes exactly one package — the one
   you named. A clean wrapper whose `dependencies` contain the payload scores
   `low-risk`. This is the largest gap in coverage.
@@ -396,13 +387,15 @@ points above the line, so a small reduction elsewhere can break recall.
   shell extensions are scanned — Python, Rust, or Go files are never read.
 - **The popular list is manually curated.** 132 hand-picked names. Anything off
   it cannot be typosquatted as far as `sx` is concerned, and the list doubles as
-  the FP corpus, so its composition biases both metrics at once. No
+  the FP corpus, so its composition biases both metrics at once. There is no
   download-weighted ordering — every entry is equally "popular".
-- **Reachability sees only local, static imports.** Bare specifiers end the walk;
-  computed requires (`require(name)`) are invisible; binaries invoked from
+- **Reachability sees only local, static imports.** Bare specifiers end the walk,
+  computed requires (`require(name)`) are invisible, and binaries invoked from
   install hooks are counted but never traversed.
 - **Metadata is trusted as reported.** `createdAt`, `weeklyDownloads`, and
-  maintainer count come from the registry; download counts are inflatable.
+  maintainer count come from the registry; download counts are inflatable. And
+  every verdict is derived locally and unsigned — there is no way to verify one
+  came from an unmodified `sx`.
 - **The LLM can over-escalate.** Observed on a real run: `express`
   `5.2.0 → 5.2.1` was assessed **`alarming`** over a `qs` configuration change
   that is very likely a legitimate fix — a +30 bonus plus concern points on a
@@ -410,6 +403,3 @@ points above the line, so a small reduction elsewhere can break recall.
   can only produce noise, never a missed detection; but noise is the §1 failure
   mode that destroys trust, so treat LLM assessments as advisory prose rather
   than a score input until diff review is better calibrated.
-- **No shared or signed verdicts.** Every user re-derives every verdict locally,
-  and there is no way to verify one came from an unmodified `sx`. Both are on
-  the roadmap.
